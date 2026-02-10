@@ -72,9 +72,9 @@ Saves:
 sudo snap install google-cloud-cli --classic
 
 
-*Found the nordic-assure project
-*added IAM Admin and Security admin
-*added Tag name  environment and key development
+- Found the nordic-assure project 
+- added IAM Admin and Security admin 
+- added Tag name  environment and key development 
 
 
 ```bash
