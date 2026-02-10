@@ -64,3 +64,35 @@ Also reports **fraud recall in Medium + High**, i.e., how many fraud cases would
 Saves:
 - `artifacts/fraud_model.pkl` — full preprocessing + model pipeline (ready for inference)
 - `artifacts/model_meta.json` — model version and thresholds for API routing/versioning
+
+
+
+## Deployment
+
+sudo snap install google-cloud-cli --classic
+
+
+Found the nordic-assure project
+added IAM Admin and Security admin 
+added Tag name and key  development
+
+
+#gcloud resource-manager tags bindings create \
+#  --parent=//cloudresourcemanager.googleapis.com/projects/883165044435 \
+#  --tag-value=tagValues/281481363704394
+#done: true
+#response:
+#  '@type': type.googleapis.com/google.cloud.resourcemanager.v3.TagBinding
+#  name: tagBindings/%2F%2Fcloudresourcemanager.googleapis.com%2Fprojects%2F883165044435/tagValues/281481363704394
+#  parent: //cloudresourcemanager.googleapis.com/projects/883165044435
+#  tagValue: tagValues/281481363704394
+#  tagValueNamespacedName: nordic-assure/enviroment/development
+
+
+#aolss113@CND1419FYF:nordic_assure$ gcloud resource-manager tags bindings list \
+#  --parent=//cloudresourcemanager.googleapis.com/projects/883165044435
+#---
+#name: tagBindings/%2F%2Fcloudresourcemanager.googleapis.com%2Fprojects%2F883165044435/tagValues/281481363704394
+#parent: //cloudresourcemanager.googleapis.com/projects/883165044435
+#tagValue: tagValues/281481363704394
+#tagValueNamespacedName: nordic-assure/enviroment/development

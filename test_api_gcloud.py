@@ -1,38 +1,56 @@
-# tests/test_api.py
-# Run with: pytest -q
+# tests/test_api_gcloud.py
+# Run with:
+#   pytest -q
+# or:
+#   BASE_URL="https://...run.app" pytest -q
 #
-# Notes:
-# - This uses FastAPI's TestClient (no network, no deployed URL required).
-# - It assumes your FastAPI app is defined in api.py as: app = FastAPI(...)
-# - It assumes you have artifacts/ (fraud_model.pkl + model_meta.json) present.
+# This file tests the *deployed* Cloud Run service over HTTP.
 
-import pytest
-from fastapi.testclient import TestClient
-#import nordic_assure._conftest as _conftest
-
-from api import app
-
-client = TestClient(app)
-
-
+import os
 import requests
-BASE_URL = "http://127.0.0.1:8000"
 
-def test_health_live():
-    r = requests.get(f"{BASE_URL}/health")
-    assert r.status_code == 200
+DEFAULT_BASE_URL = "https://nordic-assure-api-883165044435.europe-west1.run.app"
+BASE_URL = os.getenv("BASE_URL", DEFAULT_BASE_URL).rstrip("/")
 
-def test_health_endpoint():
-    r = client.get("/health")
-    assert r.status_code == 200
+TIMEOUT = 30
+
+
+def _post(path: str, payload: dict):
+    return requests.post(f"{BASE_URL}{path}", json=payload, timeout=TIMEOUT)
+
+
+def _get(path: str):
+    return requests.get(f"{BASE_URL}{path}", timeout=TIMEOUT)
+
+
+def _assert_predict_response(data: dict, claim_id: str | None = None):
+    if claim_id is not None:
+        assert data.get("claim_id") == claim_id
+
+    assert "fraud_probability" in data
+    assert "risk_level" in data
+    assert "action" in data
+
+    assert isinstance(data["fraud_probability"], (float, int))
+    assert 0.0 <= float(data["fraud_probability"]) <= 1.0
+
+    assert data["risk_level"] in {"LOW", "MEDIUM", "HIGH"}
+    assert data["action"] in {
+        "AUTO_APPROVE_PAYMENT_QUEUE",
+        "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER",
+        "BLOCK_AND_INVESTIGATE",
+    }
+
+
+def test_health():
+    r = _get("/health")
+    assert r.status_code == 200, r.text
     data = r.json()
     assert data["status"] == "ok"
     assert "model_version" in data
 
 
-def test_predict_endpoint_returns_required_fields():
-    # Minimal payload: include only fields you are confident exist in your trained dataset.
-    # IMPORTANT: these must match column names used during training.
+def test_predict_minimal_payload_returns_required_fields():
     payload = {
         "claim_id": "CLM-12345",
         "Month": "Aug",
@@ -42,160 +60,15 @@ def test_predict_endpoint_returns_required_fields():
         "Age": 31,
     }
 
-    r = client.post("/predict", json=payload)
+    r = _post("/predict", payload)
     assert r.status_code == 200, r.text
     data = r.json()
-
-    # Required fields
-    assert data["claim_id"] == "CLM-12345"
-    assert "fraud_probability" in data
-    assert "risk_level" in data
-    assert "action" in data
-
-    # Type / range checks
-    assert isinstance(data["fraud_probability"], float)
-    assert 0.0 <= data["fraud_probability"] <= 1.0
-
-    # Value checks
-    assert data["risk_level"] in {"LOW", "MEDIUM", "HIGH"}
-    assert data["action"] in {
-        "AUTO_APPROVE_PAYMENT_QUEUE",
-        "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER",
-        "BLOCK_AND_INVESTIGATE",
-    }
+    _assert_predict_response(data, claim_id="CLM-12345")
 
 
-@pytest.mark.parametrize(
-    "prob, expected_risk, expected_action",
-    [
-        (0.10, "LOW", "AUTO_APPROVE_PAYMENT_QUEUE"),
-        (0.30, "MEDIUM", "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER"),
-        (0.50, "MEDIUM", "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER"),
-        (0.70, "MEDIUM", "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER"),
-        (0.71, "HIGH", "BLOCK_AND_INVESTIGATE"),
-    ],
-)
-def test_routing_logic_via_monkeypatch(prob, expected_risk, expected_action, monkeypatch):
-    """
-    This test isolates routing correctness even if the model output changes.
-    We monkeypatch model.predict_proba to return a controlled probability.
-    """
-    from api import model as loaded_model
-
-    def fake_predict_proba(X):
-        # Return shape (n, 2): [P(class0), P(class1)]
-        import numpy as np
-        n = len(X)
-        return np.tile([1.0 - prob, prob], (n, 1))
-
-    monkeypatch.setattr(loaded_model, "predict_proba", fake_predict_proba)
-
+def test_predict_fraud_urban_allperils():
     payload = {
-        "claim_id": "CLM-ROUTE",
-        "Month": "Aug",
-        "WeekOfMonth": 2,
-        "Make": "Honda",
-        "AccidentArea": "Urban",
-        "Age": 31,
-    }
-
-    r = client.post("/predict", json=payload)
-    assert r.status_code == 200, r.text
-    data = r.json()
-
-    assert data["risk_level"] == expected_risk
-    assert data["action"] == expected_action
-    assert abs(data["fraud_probability"] - prob) < 1e-9
-
-
-def test_predict_rejects_bad_payload():
-    # Missing all features: should fail (most likely inside sklearn pipeline)
-    r = client.post("/predict", json={"claim_id": "CLM-BAD"})
-    assert r.status_code == 400
-    assert "Bad request or model error" in r.json()["detail"]
-
-
-
-def _payload_minimal():
-    # Must match training column names (use a small, known-good subset)
-    return {
-        "claim_id": "CLM-ROUTE",
-        "Month": "Aug",
-        "WeekOfMonth": 2,
-        "Make": "Honda",
-        "AccidentArea": "Urban",
-        "Age": 31,
-    }
-
-
-def _monkeypatch_prob(monkeypatch, prob: float):
-    """Patch api.model.predict_proba to return a controlled fraud probability."""
-    from api import model as loaded_model
-    import numpy as np
-
-    def fake_predict_proba(X):
-        n = len(X)
-        # columns: [P(class0), P(class1)]
-        return np.tile([1.0 - prob, prob], (n, 1))
-
-    monkeypatch.setattr(loaded_model, "predict_proba", fake_predict_proba)
-
-
-def test_predict_routes_low(monkeypatch):
-    _monkeypatch_prob(monkeypatch, prob=0.10)
-
-    r = client.post("/predict", json=_payload_minimal())
-    assert r.status_code == 200, r.text
-    data = r.json()
-
-    assert data["risk_level"] == "LOW"
-    assert data["action"] == "AUTO_APPROVE_PAYMENT_QUEUE"
-    assert abs(data["fraud_probability"] - 0.10) < 1e-9
-
-
-def test_predict_routes_medium(monkeypatch):
-    # pick something clearly in the middle of [LOW, HIGH]
-    _monkeypatch_prob(monkeypatch, prob=0.50)
-
-    r = client.post("/predict", json=_payload_minimal())
-    assert r.status_code == 200, r.text
-    data = r.json()
-
-    assert data["risk_level"] == "MEDIUM"
-    assert data["action"] == "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER"
-    assert abs(data["fraud_probability"] - 0.50) < 1e-9
-
-
-def test_predict_routes_high(monkeypatch):
-    _monkeypatch_prob(monkeypatch, prob=0.90)
-
-    r = client.post("/predict", json=_payload_minimal())
-    assert r.status_code == 200, r.text
-    data = r.json()
-
-    assert data["risk_level"] == "HIGH"
-    assert data["action"] == "BLOCK_AND_INVESTIGATE"
-    assert abs(data["fraud_probability"] - 0.90) < 1e-9
-
-
-# tests/test_api_data_cases.py
-# Run: pytest -q
-#
-# These payloads are real rows from fraud_oracle.csv (diverse/orthogonal coverage).
-# They include all feature columns (except target) + claim_id.
-# One case intentionally omits some fields to verify missing-value handling.
-
-import pytest
-from fastapi.testclient import TestClient
-
-from api import app
-
-client = TestClient(app)
-
-
-ORTHOGONAL_PAYLOADS = [
-    # Fraud row (FraudFound_P=1) — source row index: 2141
-    {
+        "claim_id": "ROW-2141",
         "AccidentArea": "Urban",
         "AddressChange_Claim": "no change",
         "Age": 35,
@@ -226,11 +99,16 @@ ORTHOGONAL_PAYLOADS = [
         "WeekOfMonthClaimed": 1,
         "WitnessPresent": "No",
         "Year": 1994,
-        "claim_id": "ROW-2141",
-    },
+    }
 
-    # Fraud row (FraudFound_P=1) — source row index: 5355
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-2141")
+
+
+def test_predict_fraud_rural_collision():
+    payload = {
+        "claim_id": "ROW-5355",
         "AccidentArea": "Rural",
         "AddressChange_Claim": "no change",
         "Age": 24,
@@ -262,11 +140,16 @@ ORTHOGONAL_PAYLOADS = [
         "WitnessPresent": "Yes",
         "PoliceReportFiled": "Yes",
         "Year": 1994,
-        "claim_id": "ROW-5355",
-    },
+    }
 
-    # Fraud row (FraudFound_P=1) — source row index: 13447
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-5355")
+
+
+def test_predict_fraud_address_change_liability():
+    payload = {
+        "claim_id": "ROW-13447",
         "AccidentArea": "Urban",
         "AddressChange_Claim": "under 6 months",
         "Age": 41,
@@ -298,11 +181,16 @@ ORTHOGONAL_PAYLOADS = [
         "WitnessPresent": "No",
         "PoliceReportFiled": "No",
         "Year": 1996,
-        "claim_id": "ROW-13447",
-    },
+    }
 
-    # Non-fraud row (FraudFound_P=0) — source row index: 4103
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-13447")
+
+
+def test_predict_nonfraud_rural_collision():
+    payload = {
+        "claim_id": "ROW-4103",
         "AccidentArea": "Rural",
         "AddressChange_Claim": "no change",
         "Age": 29,
@@ -334,11 +222,16 @@ ORTHOGONAL_PAYLOADS = [
         "WitnessPresent": "No",
         "PoliceReportFiled": "No",
         "Year": 1994,
-        "claim_id": "ROW-4103",
-    },
+    }
 
-    # Non-fraud row (FraudFound_P=0) — source row index: 10038
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-4103")
+
+
+def test_predict_nonfraud_older_policyholder():
+    payload = {
+        "claim_id": "ROW-10038",
         "AccidentArea": "Urban",
         "AddressChange_Claim": "no change",
         "Age": 54,
@@ -370,11 +263,16 @@ ORTHOGONAL_PAYLOADS = [
         "WitnessPresent": "No",
         "PoliceReportFiled": "No",
         "Year": 1996,
-        "claim_id": "ROW-10038",
-    },
+    }
 
-    # Non-fraud row (FraudFound_P=0) — source row index: 11187
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-10038")
+
+
+def test_predict_nonfraud_young_driver_liability():
+    payload = {
+        "claim_id": "ROW-11187",
         "AccidentArea": "Urban",
         "AddressChange_Claim": "no change",
         "Age": 22,
@@ -406,11 +304,16 @@ ORTHOGONAL_PAYLOADS = [
         "WitnessPresent": "No",
         "PoliceReportFiled": "No",
         "Year": 1996,
-        "claim_id": "ROW-11187",
-    },
+    }
 
-    # Missing-fields variant (derived from row 2141, but omits some fields)
-    {
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="ROW-11187")
+
+
+def test_predict_missing_fields_should_still_work():
+    payload = {
+        "claim_id": "MISSING-FIELDS",
         "Month": "Mar",
         "WeekOfMonth": 3,
         "DayOfWeek": "Friday",
@@ -437,28 +340,8 @@ ORTHOGONAL_PAYLOADS = [
         "NumberOfCars": "1 vehicle",
         "Year": 1994,
         "BasePolicy": "All Perils",
-        "claim_id": "MISSING-FIELDS",
-    },
-]
-
-
-@pytest.mark.parametrize("payload", ORTHOGONAL_PAYLOADS)
-def test_predict_with_orthogonal_dataset_payloads(payload):
-    r = client.post("/predict", json=payload)
-    assert r.status_code == 200, r.text
-    data = r.json()
-
-    assert data.get("claim_id") == payload.get("claim_id")
-    assert "fraud_probability" in data
-    assert "risk_level" in data
-    assert "action" in data
-
-    assert isinstance(data["fraud_probability"], float)
-    assert 0.0 <= data["fraud_probability"] <= 1.0
-
-    assert data["risk_level"] in {"LOW", "MEDIUM", "HIGH"}
-    assert data["action"] in {
-        "AUTO_APPROVE_PAYMENT_QUEUE",
-        "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER",
-        "BLOCK_AND_INVESTIGATE",
     }
+
+    r = _post("/predict", payload)
+    assert r.status_code == 200, r.text
+    _assert_predict_response(r.json(), claim_id="MISSING-FIELDS")
