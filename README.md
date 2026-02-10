@@ -8,6 +8,7 @@
 ```bash
 git clone https://github.com/albino01/nordic_assure.git
 cd nordic_assure
+```
 
 # nordic_assure
 
