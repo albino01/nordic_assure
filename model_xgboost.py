@@ -60,6 +60,9 @@ y = y.astype(int)
 
 X = df.drop(columns=[target_col])
 
+feature_columns = list(X.columns)
+
+
 
 def build_xgb_baseline(X, y):
     X_train, X_test, y_train, y_test = train_test_split(
@@ -170,11 +173,12 @@ os.makedirs("artifacts", exist_ok=True)
 with open("artifacts/fraud_model.pkl", "wb") as f:
     pickle.dump(model, f)
 
-# Save metadata for API routing/versioning
+## >>> UPDATED: Save feature_columns in metadata
 meta = {
     "model_version": "1.0",
     "low_threshold": 0.30,
-    "high_threshold": 0.70
+    "high_threshold": 0.70,
+    "feature_columns": feature_columns
 }
 with open("artifacts/model_meta.json", "w") as f:
     json.dump(meta, f, indent=2)
