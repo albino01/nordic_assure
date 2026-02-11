@@ -1,9 +1,8 @@
+#!/bin/bash
+
+# test_gcloud_api.sh
+
 curl https://nordic-assure-api-883165044435.europe-west1.run.app/health
-
-#curl -X POST "https://nordic-assure-api-883165044435.europe-west1.run.app/predict" \
-#  -H "Content-Type: application/json" \
-#  -d '{"claim_id":"CLM-12345","Month":"Aug","WeekOfMonth":2,"Make":"Honda","AccidentArea":"Urban","Age":31}'
-
 
 curl -X POST "https://nordic-assure-api-883165044435.europe-west1.run.app/predict" \
   -H "Content-Type: application/json" \

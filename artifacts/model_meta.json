@@ -1,7 +1,11 @@
 {
-  "model_version": "1.0",
+  "model_name": "NORDIC-ASSURE",
+  "model_version": "NORDIC-ASSURE_0006",
+  "created_utc": "2026-02-11T17:44:50Z",
+  "model_file": "model.pkl",
+  "meta_file": "meta.json",
   "low_threshold": 0.3,
-  "high_threshold": 0.7,
+  "high_threshold": 0.9888775944709778,
   "feature_columns": [
     "Month",
     "WeekOfMonth",
@@ -35,5 +39,25 @@
     "NumberOfCars",
     "Year",
     "BasePolicy"
-  ]
+  ],
+  "metrics": {
+    "cv_pr_auc_mean": 0.6269100731632367,
+    "cv_pr_auc_std": 0.025947853812626067,
+    "test_pr_auc": 0.7369376814050718,
+    "target_precision": 0.7,
+    "threshold_at_target_precision": 0.9888775944709778,
+    "fraud_recall_medium_high_default_thresholds": 0.9513513513513514,
+    "class_balance_train": {
+      "neg": 11598,
+      "pos": 738,
+      "scale_pos_weight": 15.715447154471544
+    }
+  },
+  "training_data": {
+    "source": "fraud_oracle.csv",
+    "rows": 15420,
+    "cols": 33,
+    "target_col": "FraudFound_P",
+    "positive_class": "fraud (1)"
+  }
 }
