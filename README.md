@@ -183,8 +183,8 @@ This service loads the **active production model** from fixed paths:
 
 Example promotion:
 ```bash
-cp artifacts/v0007/fraud_model.pkl artifacts/fraud_model.pkl
-cp artifacts/v0007/model_meta.json artifacts/model_meta.json
+cp artifacts/models/NORDIC-ASSURE_0001/fraud_model.pkl artifacts/fraud_model.pkl
+cp artifacts/models/NORDIC-ASSURE_0001/model_meta.json artifacts/model_meta.json
 ```
 
 ---
@@ -486,6 +486,7 @@ The schema is **derived from** `feature_columns` in `artifacts/model_meta.json`
     }
   }
 }
+```
 
 ---
 
