@@ -1,7 +1,6 @@
 # nordic_assure
 
 **nordic_assure** is a machine-learning project that builds a **binary classifier** to predict whether a vehicle insurance claim is **fraudulent** or **legitimate**.  
-It includes an end-to-end pipeline: **training + evaluation + artifact export + a deployed REST API on GCP Cloud Run**.
 
 ---
 
@@ -21,7 +20,7 @@ The training script builds and evaluates an **XGBoost-based vehicle fraud classi
 
 ### 1) Load and split data
 - Loads `fraud_oracle.csv` with pandas
-- Uses `FraudFound_P` as the binary target (converted to `0/1`)
+- Uses `FraudFound_P` as the binary target `0/1`
 - Splits into **train (80%)** and **test (20%)** using a **stratified split** so the fraud rate stays consistent
 
 ### 2) Preprocess numeric and categorical features
@@ -201,12 +200,14 @@ sudo snap install google-cloud-cli --classic
 
 ### Example tag binding
 ```bash
+
 gcloud resource-manager tags bindings create \
   --parent=//cloudresourcemanager.googleapis.com/projects/883165044435 \
   --tag-value=tagValues/281481363704394
 
 gcloud resource-manager tags bindings list \
   --parent=//cloudresourcemanager.googleapis.com/projects/883165044435
+
 ```
 
 ---
@@ -214,6 +215,7 @@ gcloud resource-manager tags bindings list \
 ## Deploy script
 
 ```bash
+
 #!/bin/bash
 # deploy.sh
 
@@ -230,6 +232,7 @@ gcloud run deploy nordic-assure-api \
   --memory 1Gi \
   --min-instances 0 \
   --max-instances 2
+
 ```
 
 ---
@@ -439,14 +442,50 @@ If `feature_columns` is `null`, the API will use all request fields (except `cla
 ```
 
 ---
-
 ## Endpoint: `GET /schema`
 
 ### Purpose
-Provide a lightweight schema-like description for client integration.
+Return a lightweight schema-like description
+
+The schema is **derived from** `feature_columns` in `artifacts/model_meta.json`
 
 ### Response (200)
-The exact output depends on whether `feature_columns` are available.
+
+```json
+{
+  "request": {
+    "content_type": "application/json",
+    "body": {
+      "type": "object",
+      "optional": ["claim_id"],
+      "properties": {
+        "<feature_1>": {"type": ["string", "number", "boolean", "null"]},
+        "<feature_2>": {"type": ["string", "number", "boolean", "null"]}
+      },
+      "notes": [
+        "Send one JSON object per claim.",
+        "Use null for unknown/missing values.",
+        "If feature_columns is present, include those keys; unknown keys are ignored."
+      ]
+    }
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "claim_id": {"type": ["string", "number"], "nullable": true},
+      "fraud_probability": {"type": "number", "range": [0.0, 1.0]},
+      "risk_level": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]},
+      "action": {
+        "type": "string",
+        "enum": [
+          "AUTO_APPROVE_PAYMENT_QUEUE",
+          "FLAG_MANUAL_REVIEW_NOTIFY_ADJUSTER",
+          "BLOCK_AND_INVESTIGATE"
+        ]
+      }
+    }
+  }
+}
 
 ---
 
