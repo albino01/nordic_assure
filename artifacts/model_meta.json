@@ -1,11 +1,11 @@
 {
   "model_name": "NORDIC-ASSURE",
-  "model_version": "NORDIC-ASSURE_0006",
-  "created_utc": "2026-02-11T17:44:50Z",
+  "model_version": "NORDIC-ASSURE_0012",
+  "created_utc": "2026-02-11T22:37:49Z",
   "model_file": "model.pkl",
   "meta_file": "meta.json",
   "low_threshold": 0.3,
-  "high_threshold": 0.9888775944709778,
+  "high_threshold": 0.9820899963378906,
   "feature_columns": [
     "Month",
     "WeekOfMonth",
@@ -22,8 +22,6 @@
     "PolicyType",
     "VehicleCategory",
     "VehiclePrice",
-    "PolicyNumber",
-    "RepNumber",
     "Deductible",
     "DriverRating",
     "Days_Policy_Accident",
@@ -40,13 +38,17 @@
     "Year",
     "BasePolicy"
   ],
+  "leakage_drops": [
+    "PolicyNumber",
+    "RepNumber"
+  ],
   "metrics": {
-    "cv_pr_auc_mean": 0.6269100731632367,
-    "cv_pr_auc_std": 0.025947853812626067,
-    "test_pr_auc": 0.7369376814050718,
+    "cv_pr_auc_mean": 0.2586478513018171,
+    "cv_pr_auc_std": 0.033550504095053085,
+    "test_pr_auc": 0.2712154386784955,
     "target_precision": 0.7,
-    "threshold_at_target_precision": 0.9888775944709778,
-    "fraud_recall_medium_high_default_thresholds": 0.9513513513513514,
+    "threshold_at_target_precision": 0.9820899963378906,
+    "fraud_recall_medium_high_default_thresholds": 0.8540540540540541,
     "class_balance_train": {
       "neg": 11598,
       "pos": 738,
@@ -56,7 +58,7 @@
   "training_data": {
     "source": "fraud_oracle.csv",
     "rows": 15420,
-    "cols": 33,
+    "cols": 31,
     "target_col": "FraudFound_P",
     "positive_class": "fraud (1)"
   }
