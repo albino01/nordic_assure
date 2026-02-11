@@ -165,7 +165,7 @@ If `feature_columns` is present in metadata:
 
 ---
 
-## Model artifacts and versioning (manual “active” model)
+## Model artifacts and versioning
 
 This service loads the **active production model** from fixed paths:
 
