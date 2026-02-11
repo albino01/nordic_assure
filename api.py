@@ -64,10 +64,6 @@ def predict(payload: dict):
         raise HTTPException(status_code=400, detail=f"Bad request or model error: {str(e)}")
     
 
-
-
-# Add these endpoints to your existing FastAPI app (no /metrics)
-
 @app.get("/meta")
 def meta_info():
     """
