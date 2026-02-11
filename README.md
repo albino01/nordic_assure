@@ -367,18 +367,6 @@ A single JSON object containing:
 
 To discover the expected feature keys, call `GET /meta`.
 
-- Requests are JSON objects with optional `claim_id` and arbitrary feature keys.
-- If `feature_columns` exists in `artifacts/model_meta.json`:
-  - The API constructs the model input row using **exactly** those keys (in that order).
-  - Extra request fields are ignored.
-  - Missing fields are filled with `null` (handled by the model’s imputers).
-- If `feature_columns` is missing or null:
-  - All request fields (except `claim_id`) are treated as features (schema may vary per request).
-
-Supported value types: `string`, `number`, `boolean`, or `null`.
-
-Unseen categorical values at inference are safe because the encoder uses `handle_unknown="ignore"`.
-
 ### Example request
 ```json
 {
